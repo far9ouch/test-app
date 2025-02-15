@@ -12,6 +12,13 @@ import requests
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
 from config import SPOTIFY_CONFIG
+import logging
+from functools import wraps
+from time import time
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_caching import Cache
+from spotipy.exceptions import SpotifyException
 
 app = Flask(__name__)
 CORS(app)
@@ -19,6 +26,49 @@ CORS(app)
 # Set environment variables
 os.environ['SPOTIFY_CLIENT_ID'] = 'e948f13a81c6473b9b63e5d2c0fa0811'
 os.environ['SPOTIFY_CLIENT_SECRET'] = 'c7911881958046d399280e34dea2df03'
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Performance and error tracking decorator
+def track_performance(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        start_time = time()
+        try:
+            result = f(*args, **kwargs)
+            execution_time = time() - start_time
+            logger.info(f"{f.__name__} completed in {execution_time:.2f}s")
+            return result
+        except Exception as e:
+            execution_time = time() - start_time
+            logger.error(f"{f.__name__} failed after {execution_time:.2f}s: {str(e)}")
+            raise
+    return wrapper
+
+# Rate limiting
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+
+# Cache configuration
+cache_config = {
+    "DEBUG": True,
+    "CACHE_TYPE": "SimpleCache",
+    "CACHE_DEFAULT_TIMEOUT": 300
+}
+app.config.from_mapping(cache_config)
+cache = Cache(app)
 
 # Fix for pytube user agent
 def get_ytb_video(url):
@@ -54,24 +104,26 @@ def home():
     return render_template('index.html')
 
 @app.route('/convert', methods=['POST'])
+@track_performance
+@limiter.limit("10 per minute")
 def convert_image():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-    
-    file = request.files['file']
-    target_format = request.form.get('format', 'png')
-    quality = int(request.form.get('quality', 85))
-    width = request.form.get('width')
-    height = request.form.get('height')
-    
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'Invalid file format'}), 400
-
     try:
-        # Handle SVG files
+        if 'file' not in request.files:
+            raise ValueError('No file uploaded')
+        
+        file = request.files['file']
+        if file.filename == '':
+            raise ValueError('No file selected')
+            
+        target_format = request.form.get('format', 'png').lower()
+        quality = int(request.form.get('quality', 85))
+        width = request.form.get('width')
+        height = request.form.get('height')
+        
+        # Validate file type
+        validate_file_type(file, ALLOWED_EXTENSIONS)
+        
+        # Process image
         if file.filename.lower().endswith('.svg'):
             output = BytesIO()
             if target_format in ['png', 'jpg', 'jpeg']:
@@ -81,7 +133,6 @@ def convert_image():
                     output = BytesIO()
                     png_image.convert('RGB').save(output, 'JPEG', quality=quality)
         else:
-            # Handle other image formats
             image = Image.open(file)
             
             # Resize if dimensions provided
@@ -91,22 +142,18 @@ def convert_image():
                     new_height = int(height)
                     image = image.resize((new_width, new_height), Image.LANCZOS)
                 except ValueError:
-                    pass
-
-            output = BytesIO()
+                    logger.warning("Invalid dimensions provided")
+                    
+            # Optimize image
+            image, save_options = optimize_image(image, target_format, quality)
             
-            # Convert to RGB if saving as JPEG
-            if target_format in ['jpg', 'jpeg']:
-                image = image.convert('RGB')
-                image.save(output, format='JPEG', quality=quality)
-            elif target_format == 'png':
-                image.save(output, format='PNG', optimize=True)
-            elif target_format == 'webp':
-                image.save(output, format='WEBP', quality=quality)
-            else:
-                image.save(output, format=target_format.upper())
+            output = BytesIO()
+            image.save(output, format=target_format.upper(), **save_options)
         
         output.seek(0)
+        size_reduction = (file.tell() - output.tell()) / file.tell() * 100
+        logger.info(f"Image converted with {size_reduction:.1f}% size reduction")
+        
         return send_file(
             output,
             mimetype=f'image/{target_format}',
@@ -115,6 +162,7 @@ def convert_image():
         )
 
     except Exception as e:
+        logger.error(f"Image conversion failed: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/apply-effect', methods=['POST'])
@@ -376,37 +424,72 @@ def check_url():
         return jsonify({'valid': False})
 
 @app.route('/spotify-info', methods=['POST'])
+@track_performance
 def get_spotify_info():
+    if not spotify_client:
+        return jsonify({'error': 'Spotify service is not available'}), 503
+        
     try:
         url = request.form.get('url')
         if not url:
             return jsonify({'error': 'No URL provided'}), 400
 
-        # Extract track ID from URL
-        if 'track/' in url:
-            track_id = url.split('track/')[1].split('?')[0]
+        # Extract track ID from URL with better validation
+        if 'spotify.com/track/' in url:
+            track_id = url.split('track/')[1].split('?')[0].split('/')[0]
         else:
-            return jsonify({'error': 'Invalid Spotify URL'}), 400
+            return jsonify({'error': 'Invalid Spotify URL format'}), 400
         
         try:
-            # Get track info
-            track = spotify_client.track(track_id)
+            # Retry mechanism for Spotify API calls
+            max_retries = 3
+            retry_count = 0
             
-            return jsonify({
-                'title': track['name'],
-                'artist': track['artists'][0]['name'],
-                'album': track['album']['name'],
-                'artwork': track['album']['images'][0]['url'] if track['album']['images'] else '',
-                'duration': track['duration_ms'] // 1000,
-                'preview_url': track['preview_url']
-            })
-        except Exception as spotify_error:
-            print(f"Spotify API Error: {spotify_error}")
-            return jsonify({'error': 'Could not fetch track information'}), 403
+            while retry_count < max_retries:
+                try:
+                    track = spotify_client.track(track_id)
+                    
+                    # Validate track data
+                    if not track or 'name' not in track:
+                        raise ValueError('Invalid track data received')
+                        
+                    return jsonify({
+                        'title': track['name'],
+                        'artist': track['artists'][0]['name'] if track['artists'] else 'Unknown Artist',
+                        'album': track['album']['name'] if track['album'] else 'Unknown Album',
+                        'artwork': track['album']['images'][0]['url'] if track['album'].get('images') else '',
+                        'duration': track['duration_ms'] // 1000,
+                        'preview_url': track['preview_url'] or ''
+                    })
+                    
+                except SpotifyException as se:
+                    if se.http_status == 429:  # Rate limiting
+                        retry_count += 1
+                        time.sleep(2 ** retry_count)  # Exponential backoff
+                    else:
+                        raise
+                except Exception as e:
+                    retry_count += 1
+                    if retry_count == max_retries:
+                        raise
+                    time.sleep(1)
+                    
+            raise Exception('Max retries exceeded')
+            
+        except SpotifyException as se:
+            error_msg = {
+                401: 'Spotify authentication failed',
+                403: 'Spotify access forbidden',
+                404: 'Track not found',
+                429: 'Too many requests, please try again later'
+            }.get(se.http_status, f'Spotify API error: {str(se)}')
+            
+            logger.error(f"Spotify API Error: {error_msg}")
+            return jsonify({'error': error_msg}), se.http_status
             
     except Exception as e:
-        print(f"General Error: {str(e)}")
-        return jsonify({'error': 'An error occurred processing your request'}), 500
+        logger.error(f"Spotify Track Info Error: {str(e)}")
+        return jsonify({'error': 'Could not fetch track information'}), 500
 
 @app.route('/convert-spotify', methods=['POST'])
 def convert_spotify():
@@ -613,15 +696,44 @@ def not_found_error(error):
 def internal_error(error):
     return render_template('error.html', error=500), 500
 
-# Initialize Spotify client
-try:
-    spotify_client = Spotify(client_credentials_manager=SpotifyClientCredentials(
-        client_id=SPOTIFY_CONFIG['client_id'],
-        client_secret=SPOTIFY_CONFIG['client_secret']
-    ))
-except Exception as e:
-    print(f"Error initializing Spotify client: {str(e)}")
-    spotify_client = None
+# Initialize Spotify client with better error handling
+def init_spotify_client():
+    try:
+        return Spotify(client_credentials_manager=SpotifyClientCredentials(
+            client_id=SPOTIFY_CONFIG['client_id'],
+            client_secret=SPOTIFY_CONFIG['client_secret']
+        ))
+    except Exception as e:
+        logger.error(f"Failed to initialize Spotify client: {str(e)}")
+        return None
+
+# Update the Spotify client initialization at the bottom of the file
+spotify_client = init_spotify_client()
+if not spotify_client:
+    logger.warning("Spotify client initialization failed - service will be unavailable")
+
+# Add these new utility functions
+def validate_file_type(file, allowed_types):
+    if '.' not in file.filename:
+        raise ValueError("No file extension")
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    if ext not in allowed_types:
+        raise ValueError(f"File type {ext} not allowed")
+    return ext
+
+def optimize_image(image, format, quality):
+    """Optimize image based on format and quality settings"""
+    if format in ['jpg', 'jpeg']:
+        # Apply JPEG-specific optimizations
+        image = image.convert('RGB')
+        return image, {'quality': quality, 'optimize': True}
+    elif format == 'png':
+        # Apply PNG-specific optimizations
+        return image, {'optimize': True, 'compress_level': 9}
+    elif format == 'webp':
+        # Apply WebP-specific optimizations
+        return image, {'quality': quality, 'method': 6}
+    return image, {}
 
 if __name__ == '__main__':
     app.run(debug=True) 

@@ -540,13 +540,24 @@ function formatDuration(seconds) {
 function showToast(message, type = 'info', duration = 3000) {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
+    
+    const icon = type === 'success' ? 'check-circle' :
+                 type === 'error' ? 'exclamation-circle' :
+                 'info-circle';
+    
     toast.innerHTML = `
-        <i class="fas fa-${type === 'success' ? 'check-circle' : 
-                          type === 'error' ? 'exclamation-circle' : 
-                          'info-circle'}"></i>
-        <span>${message}</span>
+        <div class="toast-content">
+            <i class="fas fa-${icon}"></i>
+            <span>${message}</span>
+        </div>
+        <div class="toast-progress"></div>
     `;
+    
     document.body.appendChild(toast);
+    
+    // Add progress bar animation
+    const progress = toast.querySelector('.toast-progress');
+    progress.style.animation = `toast-progress ${duration}ms linear`;
     
     setTimeout(() => {
         toast.style.animation = 'slideOut 0.3s ease-in forwards';
@@ -886,4 +897,103 @@ document.getElementById('convertBtn').addEventListener('click', async () => {
         progressText.textContent = 'Converting: 0%';
         convertBtn.disabled = false;
     }
-}); 
+});
+
+// Add this to handle loading states globally
+class LoadingState {
+    constructor() {
+        this.overlay = this.createOverlay();
+        this.spinner = this.createSpinner();
+        document.body.appendChild(this.overlay);
+    }
+
+    createOverlay() {
+        const overlay = document.createElement('div');
+        overlay.className = 'loading-overlay hidden';
+        return overlay;
+    }
+
+    createSpinner() {
+        const spinner = document.createElement('div');
+        spinner.className = 'loading-spinner-container';
+        spinner.innerHTML = `
+            <div class="loading-wave">
+                <div></div><div></div><div></div>
+                <div></div><div></div>
+            </div>
+            <p class="loading-text">Processing...</p>
+        `;
+        this.overlay.appendChild(spinner);
+        return spinner;
+    }
+
+    show(message = 'Processing...') {
+        this.spinner.querySelector('.loading-text').textContent = message;
+        this.overlay.classList.remove('hidden');
+    }
+
+    hide() {
+        this.overlay.classList.add('hidden');
+    }
+}
+
+const loadingState = new LoadingState();
+
+// Error handling utilities
+class ErrorHandler {
+    static async handleRequest(promise, {
+        loadingMessage = 'Processing...',
+        successMessage = 'Operation completed!',
+        errorMessage = 'An error occurred'
+    } = {}) {
+        try {
+            loadingState.show(loadingMessage);
+            const result = await promise;
+            showToast(successMessage, 'success');
+            return result;
+        } catch (error) {
+            console.error(error);
+            showToast(errorMessage, 'error');
+            throw error;
+        } finally {
+            loadingState.hide();
+        }
+    }
+
+    static getErrorMessage(error) {
+        if (error.response?.data?.error) {
+            return error.response.data.error;
+        }
+        if (error.message) {
+            return error.message;
+        }
+        return 'An unexpected error occurred';
+    }
+}
+
+// Form validation
+class FormValidator {
+    static validateURL(url) {
+        try {
+            new URL(url);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    static validateFileSize(file, maxSize = 50 * 1024 * 1024) { // 50MB
+        if (file.size > maxSize) {
+            throw new Error(`File size must be less than ${formatFileSize(maxSize)}`);
+        }
+        return true;
+    }
+
+    static validateFileType(file, allowedTypes) {
+        const fileType = file.type.split('/')[1];
+        if (!allowedTypes.includes(fileType)) {
+            throw new Error(`File type ${fileType} is not supported`);
+        }
+        return true;
+    }
+} 
