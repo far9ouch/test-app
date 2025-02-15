@@ -9,12 +9,23 @@ from pytube import YouTube
 from pydub import AudioSegment
 import re
 import requests
-import pytube.request
 
 app = Flask(__name__)
 CORS(app)
 
-pytube.request.default_headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+# Fix for pytube user agent
+def get_ytb_video(url):
+    yt = YouTube(
+        url,
+        use_oauth=True,
+        allow_oauth_cache=True,
+        on_progress_callback=None,
+        on_complete_callback=None,
+        proxies=None
+    )
+    # Set custom user agent for the session
+    yt.streams._monostate.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    return yt
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'svg', 'webp', 'gif'}
 
@@ -239,12 +250,8 @@ def get_video_info():
         if not url:
             return jsonify({'error': 'No URL provided'}), 400
 
-        # Add age restriction bypass
-        yt = YouTube(
-            url,
-            use_oauth=True,
-            allow_oauth_cache=True
-        )
+        # Use the new function to get YouTube video
+        yt = get_ytb_video(url)
         
         # Get video streams
         video_streams = yt.streams.filter(progressive=True, file_extension='mp4')
@@ -288,12 +295,8 @@ def download_video():
         if not url or not itag:
             return jsonify({'error': 'Missing URL or quality selection'}), 400
 
-        # Add age restriction bypass
-        yt = YouTube(
-            url,
-            use_oauth=True,
-            allow_oauth_cache=True
-        )
+        # Use the new function to get YouTube video
+        yt = get_ytb_video(url)
         
         stream = yt.streams.get_by_itag(int(itag))
         

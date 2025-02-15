@@ -8,23 +8,62 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-content">
-            <div class="logo">
-                <i class="fas fa-images"></i>
-                <span>ImageConverter Pro</span>
+    <header class="main-header">
+        <nav class="navbar">
+            <div class="nav-content">
+                <div class="logo">
+                    <i class="fas fa-tools"></i>
+                    <span>MultiTool Pro</span>
+                </div>
+                <div class="nav-links">
+                    <a href="#" class="active">Tools</a>
+                    <a href="#">API</a>
+                    <a href="#">Pricing</a>
+                    <a href="#">Support</a>
+                </div>
+                <div class="nav-actions">
+                    <div class="theme-toggle">
+                        <i class="fas fa-moon"></i>
+                    </div>
+                    <a href="#" class="sign-in-btn">Sign In</a>
+                </div>
             </div>
-            <div class="theme-toggle">
-                <i class="fas fa-moon"></i>
+        </nav>
+
+        <div class="hero-section">
+            <h1>All-in-One Media Toolkit</h1>
+            <p>Convert, edit, and download media files with professional tools</p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-number">50K+</span>
+                    <span class="stat-label">Daily Users</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">1M+</span>
+                    <span class="stat-label">Conversions</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">100%</span>
+                    <span class="stat-label">Free</span>
+                </div>
             </div>
         </div>
-    </nav>
+    </header>
 
     <div class="features-showcase">
         <div class="feature-card">
-            <i class="fas fa-image"></i>
-            <h3>Image Converter</h3>
-            <p>Convert between PNG, JPG, WebP, and more</p>
+            <div class="feature-icon">
+                <i class="fas fa-image"></i>
+            </div>
+            <div class="feature-content">
+                <h3>Image Converter</h3>
+                <p>Convert between PNG, JPG, WebP, and more formats with high quality</p>
+                <ul class="feature-list">
+                    <li><i class="fas fa-check"></i> Maintain quality</li>
+                    <li><i class="fas fa-check"></i> Batch conversion</li>
+                    <li><i class="fas fa-check"></i> Custom dimensions</li>
+                </ul>
+            </div>
         </div>
         <div class="feature-card">
             <i class="fas fa-magic"></i>
@@ -265,10 +304,69 @@
 
             <div id="status" class="status"></div>
         </div>
+
+        <div class="fab-container">
+            <button class="fab-button main">
+                <i class="fas fa-plus"></i>
+            </button>
+            <div class="fab-options">
+                <button class="fab-button mini" data-tool="convert">
+                    <i class="fas fa-image"></i>
+                    <span class="fab-label">Convert Image</span>
+                </button>
+                <button class="fab-button mini" data-tool="edit">
+                    <i class="fas fa-edit"></i>
+                    <span class="fab-label">Edit Image</span>
+                </button>
+                <button class="fab-button mini" data-tool="youtube">
+                    <i class="fab fa-youtube"></i>
+                    <span class="fab-label">YouTube Download</span>
+                </button>
+            </div>
+        </div>
     </div>
 
-    <footer>
-        <p>© 2024 ImageConverter Pro. All rights reserved.</p>
+    <footer class="main-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>MultiTool Pro</h4>
+                <p>Professional media tools for everyone</p>
+                <div class="social-links">
+                    <a href="#"><i class="fab fa-twitter"></i></a>
+                    <a href="#"><i class="fab fa-github"></i></a>
+                    <a href="#"><i class="fab fa-discord"></i></a>
+                </div>
+            </div>
+            <div class="footer-section">
+                <h4>Quick Links</h4>
+                <ul>
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Tools</a></li>
+                    <li><a href="#">API</a></li>
+                    <li><a href="#">Pricing</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Support</h4>
+                <ul>
+                    <li><a href="#">Documentation</a></li>
+                    <li><a href="#">FAQ</a></li>
+                    <li><a href="#">Contact</a></li>
+                    <li><a href="#">Status</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Newsletter</h4>
+                <p>Stay updated with our latest features</p>
+                <form class="newsletter-form">
+                    <input type="email" placeholder="Enter your email">
+                    <button type="submit">Subscribe</button>
+                </form>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2024 MultiTool Pro. All rights reserved.</p>
+        </div>
     </footer>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
