@@ -9,9 +9,12 @@ from pytube import YouTube
 from pydub import AudioSegment
 import re
 import requests
+import pytube.request
 
 app = Flask(__name__)
 CORS(app)
+
+pytube.request.default_headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'svg', 'webp', 'gif'}
 
@@ -219,6 +222,16 @@ def download_mp3():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+def get_highest_quality_stream(yt, is_video=True):
+    if is_video:
+        # Get progressive streams (with video and audio combined)
+        streams = yt.streams.filter(progressive=True, file_extension='mp4')
+        return streams.order_by('resolution').desc().first()
+    else:
+        # Get audio-only streams
+        streams = yt.streams.filter(only_audio=True)
+        return streams.order_by('abr').desc().first()
+
 @app.route('/video-info', methods=['POST'])
 def get_video_info():
     try:
@@ -226,16 +239,16 @@ def get_video_info():
         if not url:
             return jsonify({'error': 'No URL provided'}), 400
 
-        yt = YouTube(url)
+        # Add age restriction bypass
+        yt = YouTube(
+            url,
+            use_oauth=True,
+            allow_oauth_cache=True
+        )
         
-        # Get all available streams
-        streams = yt.streams
-        
-        # Get video streams with audio
-        video_streams = streams.filter(progressive=True).order_by('resolution').desc()
-        
-        # Get audio-only streams
-        audio_streams = streams.filter(only_audio=True).order_by('abr').desc()
+        # Get video streams
+        video_streams = yt.streams.filter(progressive=True, file_extension='mp4')
+        audio_streams = yt.streams.filter(only_audio=True)
         
         # Format stream information
         video_qualities = [{
@@ -243,14 +256,16 @@ def get_video_info():
             'resolution': s.resolution,
             'fps': s.fps,
             'filesize': s.filesize,
-            'mime_type': s.mime_type
+            'mime_type': s.mime_type,
+            'description': f"{s.resolution} ({formatFileSize(s.filesize)})"
         } for s in video_streams]
         
         audio_qualities = [{
             'itag': s.itag,
             'abr': s.abr,
             'filesize': s.filesize,
-            'mime_type': s.mime_type
+            'mime_type': s.mime_type,
+            'description': f"{s.abr} ({formatFileSize(s.filesize)})"
         } for s in audio_streams]
 
         return jsonify({
@@ -273,11 +288,22 @@ def download_video():
         if not url or not itag:
             return jsonify({'error': 'Missing URL or quality selection'}), 400
 
-        yt = YouTube(url)
+        # Add age restriction bypass
+        yt = YouTube(
+            url,
+            use_oauth=True,
+            allow_oauth_cache=True
+        )
+        
         stream = yt.streams.get_by_itag(int(itag))
         
         if not stream:
-            return jsonify({'error': 'Selected quality not available'}), 404
+            # Fallback to highest quality if selected stream is not available
+            is_video = request.form.get('format') == 'video'
+            stream = get_highest_quality_stream(yt, is_video)
+            
+            if not stream:
+                return jsonify({'error': 'No suitable stream found'}), 404
 
         # Download to memory
         output = BytesIO()
@@ -298,6 +324,16 @@ def download_video():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Helper function for file size formatting
+def formatFileSize(bytes):
+    if bytes is None:
+        return "Unknown size"
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if bytes < 1024:
+            return f"{bytes:.1f} {unit}"
+        bytes /= 1024
+    return f"{bytes:.1f} GB"
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():

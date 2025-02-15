@@ -436,44 +436,19 @@ document.getElementById('youtubeForm').addEventListener('submit', async (e) => {
     showToast('Checking video...', 'info');
 
     try {
-        const formData = new FormData();
-        formData.append('url', url);
-
-        const response = await fetch('/video-info', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            
-            // Update video info
-            document.getElementById('videoThumbnail').src = data.thumbnail;
-            document.getElementById('videoTitle').textContent = data.title;
-            document.getElementById('videoAuthor').textContent = `by ${data.author}`;
-            document.getElementById('videoDuration').textContent = formatDuration(data.length);
-            
-            // Update quality options
-            const videoQualities = document.getElementById('videoQualities');
-            const audioQualities = document.getElementById('audioQualities');
-            
-            videoQualities.innerHTML = '';
-            audioQualities.innerHTML = '';
-            
-            data.video_qualities.forEach(quality => {
-                videoQualities.appendChild(createQualityOption(quality, true));
-            });
-            
-            data.audio_qualities.forEach(quality => {
-                audioQualities.appendChild(createQualityOption(quality, false));
-            });
-            
-            videoInfo.classList.remove('hidden');
-            showToast('Video found!', 'success');
-        } else {
-            const error = await response.json();
-            showToast(`Error: ${error.error}`, 'error');
-        }
+        const data = await fetchVideoInfo(url);
+        
+        // Update video info
+        document.getElementById('videoThumbnail').src = data.thumbnail;
+        document.getElementById('videoTitle').textContent = data.title;
+        document.getElementById('videoAuthor').textContent = `by ${data.author}`;
+        document.getElementById('videoDuration').textContent = formatDuration(data.length);
+        
+        // Update quality options
+        updateQualityOptions(data.video_qualities, data.audio_qualities);
+        
+        videoInfo.classList.remove('hidden');
+        showToast('Video found!', 'success');
     } catch (error) {
         showToast(`Error: ${error.message}`, 'error');
     } finally {
@@ -487,14 +462,17 @@ document.getElementById('downloadBtn').addEventListener('click', async () => {
     const progress = document.querySelector('.download-progress');
     const progressBar = document.querySelector('.progress');
     const progressText = document.querySelector('.progress-text');
+    const downloadBtn = document.getElementById('downloadBtn');
     
     progress.classList.remove('hidden');
+    downloadBtn.disabled = true;
     showToast('Starting download...', 'info');
 
     try {
         const formData = new FormData();
         formData.append('url', document.getElementById('youtubeUrl').value);
         formData.append('itag', selectedQuality);
+        formData.append('format', document.querySelector('.format-tab.active').dataset.format);
 
         const response = await fetch('/download-video', {
             method: 'POST',
@@ -525,6 +503,7 @@ document.getElementById('downloadBtn').addEventListener('click', async () => {
         progress.classList.add('hidden');
         progressBar.style.width = '0';
         progressText.textContent = 'Downloading: 0%';
+        downloadBtn.disabled = false;
     }
 });
 
@@ -609,4 +588,45 @@ document.addEventListener('keydown', (e) => {
                 break;
         }
     }
-}); 
+});
+
+// Add retry logic for video info
+async function fetchVideoInfo(url, retryCount = 3) {
+    for (let i = 0; i < retryCount; i++) {
+        try {
+            const formData = new FormData();
+            formData.append('url', url);
+
+            const response = await fetch('/video-info', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (error) {
+            if (i === retryCount - 1) throw error;
+            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        }
+    }
+    throw new Error('Failed to fetch video info after multiple attempts');
+}
+
+function updateQualityOptions(videoQualities, audioQualities) {
+    const videoList = document.getElementById('videoQualities');
+    const audioList = document.getElementById('audioQualities');
+    
+    videoList.innerHTML = '';
+    audioList.innerHTML = '';
+    
+    videoQualities.forEach(quality => {
+        const option = createQualityOption(quality, true);
+        videoList.appendChild(option);
+    });
+    
+    audioQualities.forEach(quality => {
+        const option = createQualityOption(quality, false);
+        audioList.appendChild(option);
+    });
+} 
