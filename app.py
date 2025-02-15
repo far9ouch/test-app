@@ -9,23 +9,40 @@ from pytube import YouTube
 from pydub import AudioSegment
 import re
 import requests
+from spotipy import Spotify
+from spotipy.oauth2 import SpotifyClientCredentials
+from config import SPOTIFY_CONFIG
 
 app = Flask(__name__)
 CORS(app)
 
+# Set environment variables
+os.environ['SPOTIFY_CLIENT_ID'] = 'e948f13a81c6473b9b63e5d2c0fa0811'
+os.environ['SPOTIFY_CLIENT_SECRET'] = 'c7911881958046d399280e34dea2df03'
+
 # Fix for pytube user agent
 def get_ytb_video(url):
-    yt = YouTube(
-        url,
-        use_oauth=True,
-        allow_oauth_cache=True,
-        on_progress_callback=None,
-        on_complete_callback=None,
-        proxies=None
-    )
-    # Set custom user agent for the session
-    yt.streams._monostate.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    return yt
+    try:
+        yt = YouTube(
+            url,
+            use_oauth=False,
+            allow_oauth_cache=True
+        )
+        # Update headers with more complete user agent
+        yt.bypass_age_gate()
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-us,en;q=0.5',
+            'Accept-Encoding': 'gzip,deflate',
+            'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+            'Keep-Alive': '300',
+            'Connection': 'keep-alive',
+        }
+        yt.streams._monostate.headers = headers
+        return yt
+    except Exception as e:
+        raise Exception(f"Error initializing YouTube: {str(e)}")
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'svg', 'webp', 'gif'}
 
@@ -358,6 +375,61 @@ def check_url():
     except:
         return jsonify({'valid': False})
 
+@app.route('/spotify-info', methods=['POST'])
+def get_spotify_info():
+    try:
+        url = request.form.get('url')
+        if not url:
+            return jsonify({'error': 'No URL provided'}), 400
+
+        # Extract track ID from URL
+        track_id = url.split('/')[-1].split('?')[0]
+        
+        # Get track info
+        track = spotify_client.track(track_id)
+        
+        return jsonify({
+            'title': track['name'],
+            'artist': track['artists'][0]['name'],
+            'album': track['album']['name'],
+            'artwork': track['album']['images'][0]['url'],
+            'duration': track['duration_ms'] // 1000,
+            'preview_url': track['preview_url']
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/convert-spotify', methods=['POST'])
+def convert_spotify():
+    try:
+        url = request.form.get('url')
+        quality = request.form.get('quality', '320')
+        
+        if not url:
+            return jsonify({'error': 'No URL provided'}), 400
+
+        # Extract track ID
+        track_id = url.split('/')[-1].split('?')[0]
+        
+        # Get track info for metadata
+        track = spotify_client.track(track_id)
+        
+        # Get audio features
+        audio = spotify_client.audio_features([track_id])[0]
+        
+        # Here you would implement the actual audio conversion
+        # For demonstration, we'll just return the preview URL
+        if not track['preview_url']:
+            return jsonify({'error': 'Preview not available'}), 404
+
+        return jsonify({
+            'url': track['preview_url'],
+            'title': track['name'],
+            'artist': track['artists'][0]['name']
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('error.html', error=404), 404
@@ -365,6 +437,12 @@ def not_found_error(error):
 @app.errorhandler(500)
 def internal_error(error):
     return render_template('error.html', error=500), 500
+
+# Initialize Spotify client
+spotify_client = Spotify(client_credentials_manager=SpotifyClientCredentials(
+    client_id=SPOTIFY_CONFIG['client_id'],
+    client_secret=SPOTIFY_CONFIG['client_secret']
+))
 
 if __name__ == '__main__':
     app.run(debug=True) 

@@ -72,19 +72,15 @@ function preventDefaults(e) {
 });
 
 ['dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, () => {
-        dropZone.classList.remove('drag-over');
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        
+        if (files.length > 0) {
+            document.getElementById('imageFile').files = files;
+            handleFileSelect(files[0]);
+        }
     });
-});
-
-dropZone.addEventListener('drop', (e) => {
-    const dt = e.dataTransfer;
-    const files = dt.files;
-    
-    if (files.length > 0) {
-        document.getElementById('imageFile').files = files;
-        handleFileSelect(files[0]);
-    }
 });
 
 // File handling and preview
@@ -394,20 +390,22 @@ document.querySelectorAll('.format-tab').forEach(tab => {
 
 function createQualityOption(quality, isVideo) {
     const div = document.createElement('div');
-    div.className = 'quality-option';
+    div.className = 'quality-option glass-card';
     div.dataset.itag = quality.itag;
     
-    const filesize = formatFileSize(quality.filesize);
+    const icon = isVideo ? 'video' : 'music';
     const qualityLabel = isVideo ? 
         `${quality.resolution} ${quality.fps}fps` :
         `${quality.abr}`;
+    const filesize = formatFileSize(quality.filesize);
     
     div.innerHTML = `
         <div class="quality-info">
-            <i class="fas fa-${isVideo ? 'video' : 'music'}"></i>
-            <span>${qualityLabel}</span>
+            <i class="fas fa-${icon}"></i>
+            <span class="quality-label">${qualityLabel}</span>
+            <span class="quality-size">${filesize}</span>
         </div>
-        <span class="quality-size">${filesize}</span>
+        <div class="quality-hover-effect"></div>
     `;
     
     div.addEventListener('click', () => {
@@ -421,27 +419,52 @@ function createQualityOption(quality, isVideo) {
     return div;
 }
 
+async function checkYouTubeUrl(url) {
+    if (!url.match(/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/)) {
+        throw new Error('Please enter a valid YouTube URL');
+    }
+    
+    const formData = new FormData();
+    formData.append('url', url);
+    
+    try {
+        const response = await fetchWithRetry('/video-info', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.error) {
+            throw new Error(response.error);
+        }
+        
+        return response;
+    } catch (error) {
+        throw new Error('Could not fetch video information. Please try again.');
+    }
+}
+
 document.getElementById('youtubeForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const url = document.getElementById('youtubeUrl').value;
     const videoInfo = document.getElementById('videoInfo');
+    const downloadBtn = document.getElementById('downloadBtn');
     
     if (!url) {
         showToast('Please enter a YouTube URL', 'error');
         return;
     }
 
-    showLoading(document.querySelector('.youtube-form'));
+    const loadingIndicator = showLoading(document.querySelector('.youtube-form'));
     showToast('Checking video...', 'info');
 
     try {
-        const data = await fetchVideoInfo(url);
+        const data = await checkYouTubeUrl(url);
         
         // Update video info
         document.getElementById('videoThumbnail').src = data.thumbnail;
         document.getElementById('videoTitle').textContent = data.title;
-        document.getElementById('videoAuthor').textContent = `by ${data.author}`;
+        document.getElementById('videoAuthor').textContent = data.author;
         document.getElementById('videoDuration').textContent = formatDuration(data.length);
         
         // Update quality options
@@ -450,9 +473,9 @@ document.getElementById('youtubeForm').addEventListener('submit', async (e) => {
         videoInfo.classList.remove('hidden');
         showToast('Video found!', 'success');
     } catch (error) {
-        showToast(`Error: ${error.message}`, 'error');
+        handleYouTubeError(error);
     } finally {
-        hideLoading(document.querySelector('.youtube-form'));
+        loadingIndicator.remove();
     }
 });
 
@@ -531,18 +554,6 @@ function showToast(message, type = 'info', duration = 3000) {
     }, duration);
 }
 
-// Feature card navigation
-document.querySelectorAll('.feature-card').forEach(card => {
-    card.addEventListener('click', () => {
-        const feature = card.querySelector('h3').textContent.toLowerCase();
-        const tabId = feature.includes('image') ? 'convert' :
-                     feature.includes('editor') ? 'edit' :
-                     feature.includes('youtube') ? 'youtube' : 'batch';
-        
-        document.querySelector(`.tab-btn[data-tab="${tabId}"]`).click();
-    });
-});
-
 // Improved file drag and drop
 function handleDragOver(e) {
     e.preventDefault();
@@ -563,10 +574,19 @@ function handleDragLeave(e) {
 }
 
 // Add loading indicators
-function showLoading(element) {
-    const spinner = document.createElement('div');
-    spinner.className = 'loading-spinner';
-    element.appendChild(spinner);
+function showLoading(element, text = 'Loading...') {
+    const loadingEl = document.createElement('div');
+    loadingEl.className = 'loading-wave';
+    loadingEl.innerHTML = `
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <p>${text}</p>
+    `;
+    element.appendChild(loadingEl);
+    return loadingEl;
 }
 
 function hideLoading(element) {
@@ -726,4 +746,144 @@ function showSkeleton(container) {
 
 function hideSkeleton(skeleton) {
     skeleton.remove();
-} 
+}
+
+// Improved error handling
+function handleYouTubeError(error) {
+    console.error('YouTube Error:', error);
+    
+    let errorMessage = 'An error occurred while processing your request.';
+    
+    if (error.message.includes('age restricted')) {
+        errorMessage = 'This video is age restricted. Please try another video.';
+    } else if (error.message.includes('not available')) {
+        errorMessage = 'This video is not available in your region or has been removed.';
+    } else if (error.message.includes('private')) {
+        errorMessage = 'This is a private video. Please try another video.';
+    }
+    
+    showToast(errorMessage, 'error', 5000);
+}
+
+// Add retry mechanism
+async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            if (i === retries - 1) throw error;
+            await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        }
+    }
+}
+
+// Spotify handling
+let selectedSpotifyQuality = null;
+
+document.getElementById('spotifyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const url = document.getElementById('spotifyUrl').value;
+    const trackInfo = document.getElementById('trackInfo');
+    const convertBtn = document.getElementById('convertBtn');
+    
+    if (!url) {
+        showToast('Please enter a Spotify track URL', 'error');
+        return;
+    }
+
+    const loadingIndicator = showLoading(document.querySelector('.spotify-form'));
+    showToast('Checking track...', 'info');
+
+    try {
+        const formData = new FormData();
+        formData.append('url', url);
+        
+        const response = await fetch('/spotify-info', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Update track info
+            document.getElementById('trackArtwork').src = data.artwork;
+            document.getElementById('trackTitle').textContent = data.title;
+            document.getElementById('trackArtist').textContent = data.artist;
+            document.getElementById('trackAlbum').textContent = data.album;
+            
+            trackInfo.classList.remove('hidden');
+            showToast('Track found!', 'success');
+        } else {
+            const error = await response.json();
+            showToast(`Error: ${error.error}`, 'error');
+        }
+    } catch (error) {
+        showToast(`Error: ${error.message}`, 'error');
+    } finally {
+        loadingIndicator.remove();
+    }
+});
+
+// Quality selection
+document.querySelectorAll('.quality-option').forEach(option => {
+    option.addEventListener('click', () => {
+        document.querySelectorAll('.quality-option').forEach(opt => 
+            opt.classList.remove('selected'));
+        option.classList.add('selected');
+        selectedSpotifyQuality = option.dataset.quality;
+        document.getElementById('convertBtn').disabled = false;
+    });
+});
+
+// Convert button
+document.getElementById('convertBtn').addEventListener('click', async () => {
+    if (!selectedSpotifyQuality) return;
+    
+    const progress = document.querySelector('.conversion-progress');
+    const progressBar = document.querySelector('.progress');
+    const progressText = document.querySelector('.progress-text');
+    const convertBtn = document.getElementById('convertBtn');
+    
+    progress.classList.remove('hidden');
+    convertBtn.disabled = true;
+    showToast('Starting conversion...', 'info');
+
+    try {
+        const formData = new FormData();
+        formData.append('url', document.getElementById('spotifyUrl').value);
+        formData.append('quality', selectedSpotifyQuality);
+
+        const response = await fetch('/convert-spotify', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Download the converted file
+            const a = document.createElement('a');
+            a.href = data.url;
+            a.download = `${data.title} - ${data.artist}.mp3`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showToast('Conversion completed!', 'success');
+        } else {
+            const error = await response.json();
+            showToast(`Error: ${error.error}`, 'error');
+        }
+    } catch (error) {
+        showToast(`Error: ${error.message}`, 'error');
+    } finally {
+        progress.classList.add('hidden');
+        progressBar.style.width = '0';
+        progressText.textContent = 'Converting: 0%';
+        convertBtn.disabled = false;
+    }
+}); 

@@ -50,45 +50,21 @@
         </div>
     </header>
 
-    <div class="features-showcase">
-        <div class="feature-card">
-            <div class="feature-icon">
-                <i class="fas fa-image"></i>
-            </div>
-            <div class="feature-content">
-                <h3>Image Converter</h3>
-                <p>Convert between PNG, JPG, WebP, and more formats with high quality</p>
-                <ul class="feature-list">
-                    <li><i class="fas fa-check"></i> Maintain quality</li>
-                    <li><i class="fas fa-check"></i> Batch conversion</li>
-                    <li><i class="fas fa-check"></i> Custom dimensions</li>
-                </ul>
-            </div>
-        </div>
-        <div class="feature-card">
-            <i class="fas fa-magic"></i>
-            <h3>Image Editor</h3>
-            <p>Apply effects, crop, and enhance images</p>
-        </div>
-        <div class="feature-card">
-            <i class="fab fa-youtube"></i>
-            <h3>YouTube to MP3</h3>
-            <p>Download YouTube videos as MP3</p>
-        </div>
-        <div class="feature-card">
-            <i class="fas fa-layer-group"></i>
-            <h3>Batch Processing</h3>
-            <p>Convert multiple files at once</p>
-        </div>
-    </div>
-
     <div class="container">
         <div class="converter-box">
             <div class="tabs">
-                <button class="tab-btn active" data-tab="convert">Convert Image</button>
-                <button class="tab-btn" data-tab="batch">Batch Convert</button>
-                <button class="tab-btn" data-tab="edit">Edit Image</button>
-                <button class="tab-btn" data-tab="youtube">YouTube MP3</button>
+                <button class="tab-btn active" data-tab="convert">
+                    <i class="fas fa-image"></i> Convert Image
+                </button>
+                <button class="tab-btn" data-tab="edit">
+                    <i class="fas fa-magic"></i> Edit Image
+                </button>
+                <button class="tab-btn" data-tab="youtube">
+                    <i class="fab fa-youtube"></i> Media Download
+                </button>
+                <button class="tab-btn" data-tab="spotify">
+                    <i class="fab fa-spotify"></i> Spotify Convert
+                </button>
             </div>
 
             <div class="tab-content active" id="convert">
@@ -156,15 +132,6 @@
                 </div>
             </div>
 
-            <div class="tab-content" id="batch">
-                <div class="batch-upload">
-                    <h3><i class="fas fa-layer-group"></i> Batch Convert</h3>
-                    <p>Convert multiple images at once</p>
-                    <input type="file" id="batchFiles" multiple accept=".png,.jpg,.jpeg,.svg,.webp,.gif">
-                    <label for="batchFiles" class="file-label">Select Multiple Files</label>
-                </div>
-            </div>
-
             <div class="tab-content" id="edit">
                 <div class="edit-container">
                     <div class="edit-preview">
@@ -226,13 +193,14 @@
             </div>
 
             <div class="tab-content" id="youtube">
-                <div class="youtube-container">
+                <div class="youtube-container glass-card">
                     <div class="youtube-form">
-                        <h3><i class="fab fa-youtube"></i> YouTube Downloader</h3>
+                        <h3>YouTube Video Downloader</h3>
                         <form id="youtubeForm">
                             <div class="url-input">
                                 <input type="text" id="youtubeUrl" 
                                        placeholder="Paste YouTube URL here..."
+                                       class="form-input"
                                        required>
                                 <button type="submit" class="check-btn">
                                     <i class="fas fa-search"></i> Check Video
@@ -242,12 +210,12 @@
                     </div>
 
                     <div id="videoInfo" class="video-info hidden">
-                        <div class="video-preview">
+                        <div class="video-preview glass-card">
                             <img id="videoThumbnail" alt="Video thumbnail">
                             <div class="video-details">
                                 <h4 id="videoTitle"></h4>
-                                <p id="videoAuthor"></p>
-                                <p id="videoDuration"></p>
+                                <p>By <span id="videoAuthor"></span></p>
+                                <p>Duration: <span id="videoDuration"></span></p>
                             </div>
                         </div>
 
@@ -261,19 +229,15 @@
                                 </button>
                             </div>
 
-                            <div class="quality-panels">
+                            <div class="quality-panels glass-card">
                                 <div class="quality-panel active" id="videoQualityPanel">
                                     <h4>Select Video Quality:</h4>
-                                    <div class="quality-list" id="videoQualities">
-                                        <!-- Video qualities will be added here -->
-                                    </div>
+                                    <div class="quality-list" id="videoQualities"></div>
                                 </div>
 
                                 <div class="quality-panel" id="audioQualityPanel">
                                     <h4>Select Audio Quality:</h4>
-                                    <div class="quality-list" id="audioQualities">
-                                        <!-- Audio qualities will be added here -->
-                                    </div>
+                                    <div class="quality-list" id="audioQualities"></div>
                                 </div>
                             </div>
 
@@ -289,15 +253,66 @@
                         </div>
                         <p class="progress-text">Downloading: 0%</p>
                     </div>
+                </div>
+            </div>
 
-                    <div class="features-list">
-                        <h4>Features:</h4>
-                        <ul>
-                            <li><i class="fas fa-video"></i> Download videos up to 4K quality</li>
-                            <li><i class="fas fa-music"></i> High-quality MP3 conversion</li>
-                            <li><i class="fas fa-tachometer-alt"></i> Multiple quality options</li>
-                            <li><i class="fas fa-check"></i> Free and unlimited downloads</li>
-                        </ul>
+            <div class="tab-content" id="spotify">
+                <div class="spotify-container glass-card">
+                    <div class="spotify-form">
+                        <h3>Spotify Track Converter</h3>
+                        <form id="spotifyForm">
+                            <div class="url-input">
+                                <input type="text" id="spotifyUrl" 
+                                       placeholder="Paste Spotify track URL here..."
+                                       class="form-input"
+                                       required>
+                                <button type="submit" class="check-btn">
+                                    <i class="fas fa-search"></i> Check Track
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="trackInfo" class="track-info hidden">
+                        <div class="track-preview glass-card">
+                            <img id="trackArtwork" alt="Track artwork">
+                            <div class="track-details">
+                                <h4 id="trackTitle"></h4>
+                                <p>By <span id="trackArtist"></span></p>
+                                <p>Album: <span id="trackAlbum"></span></p>
+                            </div>
+                        </div>
+
+                        <div class="quality-options">
+                            <h4>Select Audio Quality:</h4>
+                            <div class="quality-list">
+                                <div class="quality-option glass-card" data-quality="320">
+                                    <div class="quality-info">
+                                        <i class="fas fa-music"></i>
+                                        <span class="quality-label">320 kbps</span>
+                                        <span class="quality-desc">High Quality</span>
+                                    </div>
+                                </div>
+                                <div class="quality-option glass-card" data-quality="256">
+                                    <div class="quality-info">
+                                        <i class="fas fa-music"></i>
+                                        <span class="quality-label">256 kbps</span>
+                                        <span class="quality-desc">Standard Quality</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="convertBtn" class="convert-btn" disabled>
+                            <i class="fas fa-exchange-alt"></i> Convert to MP3
+                        </button>
+                    </div>
+
+                    <div class="conversion-progress hidden">
+                        <div class="progress-bar">
+                            <div class="progress"></div>
+                        </div>
+                        <p class="progress-text">Converting: 0%</p>
                     </div>
                 </div>
             </div>
