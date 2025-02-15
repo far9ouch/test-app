@@ -383,21 +383,30 @@ def get_spotify_info():
             return jsonify({'error': 'No URL provided'}), 400
 
         # Extract track ID from URL
-        track_id = url.split('/')[-1].split('?')[0]
+        if 'track/' in url:
+            track_id = url.split('track/')[1].split('?')[0]
+        else:
+            return jsonify({'error': 'Invalid Spotify URL'}), 400
         
-        # Get track info
-        track = spotify_client.track(track_id)
-        
-        return jsonify({
-            'title': track['name'],
-            'artist': track['artists'][0]['name'],
-            'album': track['album']['name'],
-            'artwork': track['album']['images'][0]['url'],
-            'duration': track['duration_ms'] // 1000,
-            'preview_url': track['preview_url']
-        })
+        try:
+            # Get track info
+            track = spotify_client.track(track_id)
+            
+            return jsonify({
+                'title': track['name'],
+                'artist': track['artists'][0]['name'],
+                'album': track['album']['name'],
+                'artwork': track['album']['images'][0]['url'] if track['album']['images'] else '',
+                'duration': track['duration_ms'] // 1000,
+                'preview_url': track['preview_url']
+            })
+        except Exception as spotify_error:
+            print(f"Spotify API Error: {spotify_error}")
+            return jsonify({'error': 'Could not fetch track information'}), 403
+            
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"General Error: {str(e)}")
+        return jsonify({'error': 'An error occurred processing your request'}), 500
 
 @app.route('/convert-spotify', methods=['POST'])
 def convert_spotify():
@@ -409,26 +418,31 @@ def convert_spotify():
             return jsonify({'error': 'No URL provided'}), 400
 
         # Extract track ID
-        track_id = url.split('/')[-1].split('?')[0]
+        if 'track/' in url:
+            track_id = url.split('track/')[1].split('?')[0]
+        else:
+            return jsonify({'error': 'Invalid Spotify URL'}), 400
         
-        # Get track info for metadata
-        track = spotify_client.track(track_id)
-        
-        # Get audio features
-        audio = spotify_client.audio_features([track_id])[0]
-        
-        # Here you would implement the actual audio conversion
-        # For demonstration, we'll just return the preview URL
-        if not track['preview_url']:
-            return jsonify({'error': 'Preview not available'}), 404
+        try:
+            # Get track info
+            track = spotify_client.track(track_id)
+            
+            # Check if preview is available
+            if not track['preview_url']:
+                return jsonify({'error': 'Preview not available for this track'}), 404
 
-        return jsonify({
-            'url': track['preview_url'],
-            'title': track['name'],
-            'artist': track['artists'][0]['name']
-        })
+            return jsonify({
+                'url': track['preview_url'],
+                'title': track['name'],
+                'artist': track['artists'][0]['name']
+            })
+        except Exception as spotify_error:
+            print(f"Spotify API Error: {spotify_error}")
+            return jsonify({'error': 'Could not fetch track information'}), 403
+            
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"General Error: {str(e)}")
+        return jsonify({'error': 'An error occurred processing your request'}), 500
 
 @app.errorhandler(404)
 def not_found_error(error):
@@ -439,10 +453,14 @@ def internal_error(error):
     return render_template('error.html', error=500), 500
 
 # Initialize Spotify client
-spotify_client = Spotify(client_credentials_manager=SpotifyClientCredentials(
-    client_id=SPOTIFY_CONFIG['client_id'],
-    client_secret=SPOTIFY_CONFIG['client_secret']
-))
+try:
+    spotify_client = Spotify(client_credentials_manager=SpotifyClientCredentials(
+        client_id=SPOTIFY_CONFIG['client_id'],
+        client_secret=SPOTIFY_CONFIG['client_secret']
+    ))
+except Exception as e:
+    print(f"Error initializing Spotify client: {str(e)}")
+    spotify_client = None
 
 if __name__ == '__main__':
     app.run(debug=True) 
