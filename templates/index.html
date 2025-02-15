@@ -3,15 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>24/7 Web App</title>
+    <title>Image Converter Pro</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
+    <nav class="navbar">
+        <div class="nav-content">
+            <div class="logo">
+                <i class="fas fa-images"></i>
+                <span>ImageConverter Pro</span>
+            </div>
+            <div class="theme-toggle">
+                <i class="fas fa-moon"></i>
+            </div>
+        </div>
+    </nav>
+
     <div class="container">
-        <h1>Welcome to my 24/7 Web App</h1>
-        <div id="time-display">Loading...</div>
-        <div id="api-message"></div>
+        <div class="converter-box">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="convert">Convert Image</button>
+                <button class="tab-btn" data-tab="batch">Batch Convert</button>
+            </div>
+
+            <div class="tab-content active" id="convert">
+                <form id="uploadForm">
+                    <div class="drop-zone">
+                        <div class="drop-zone-content">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Drag & Drop your image here or</p>
+                            <input type="file" id="imageFile" accept=".png,.jpg,.jpeg,.svg,.webp,.gif" required>
+                            <label for="imageFile" class="file-label">Choose File</label>
+                        </div>
+                    </div>
+
+                    <div class="settings-panel">
+                        <div class="format-select">
+                            <label for="format">
+                                <i class="fas fa-file-image"></i> Output Format:
+                            </label>
+                            <select id="format" name="format">
+                                <option value="png">PNG</option>
+                                <option value="jpg">JPG</option>
+                                <option value="webp">WebP</option>
+                                <option value="gif">GIF</option>
+                            </select>
+                        </div>
+
+                        <div class="quality-select">
+                            <label for="quality">
+                                <i class="fas fa-sliders-h"></i> Quality:
+                            </label>
+                            <input type="range" id="quality" min="1" max="100" value="85">
+                            <span id="qualityValue">85%</span>
+                        </div>
+
+                        <div class="size-options">
+                            <label>
+                                <i class="fas fa-compress-arrows-alt"></i> Resize:
+                            </label>
+                            <div class="size-inputs">
+                                <input type="number" id="width" placeholder="Width">
+                                <span>×</span>
+                                <input type="number" id="height" placeholder="Height">
+                                <label class="checkbox">
+                                    <input type="checkbox" id="maintainAspectRatio" checked>
+                                    <span>Maintain aspect ratio</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="convert-btn">
+                        <i class="fas fa-sync-alt"></i> Convert
+                    </button>
+                </form>
+
+                <div id="preview-panel" class="hidden">
+                    <h3><i class="fas fa-eye"></i> Preview</h3>
+                    <div class="preview-container">
+                        <img id="imagePreview">
+                    </div>
+                    <div class="image-info">
+                        <p>Original Size: <span id="originalSize">-</span></p>
+                        <p>New Size: <span id="newSize">-</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="batch">
+                <div class="batch-upload">
+                    <h3><i class="fas fa-layer-group"></i> Batch Convert</h3>
+                    <p>Convert multiple images at once</p>
+                    <input type="file" id="batchFiles" multiple accept=".png,.jpg,.jpeg,.svg,.webp,.gif">
+                    <label for="batchFiles" class="file-label">Select Multiple Files</label>
+                </div>
+            </div>
+
+            <div id="status" class="status"></div>
+        </div>
     </div>
+
+    <footer>
+        <p>© 2024 ImageConverter Pro. All rights reserved.</p>
+    </footer>
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html> 
