@@ -9,4 +9,6 @@ pytube==15.0.0
 pydub==0.25.1
 requests==2.31.0
 youtube-dl==2021.12.17  # Add as fallback 
-spotipy==2.23.0 
+spotipy==2.23.0
+mutagen==1.45.1
+ffmpeg-python==0.2.0 

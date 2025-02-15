@@ -1194,4 +1194,113 @@ footer {
 .success-message i {
     color: #4CAF50;
     font-size: 1.5rem;
+}
+
+/* API Documentation Styles */
+.api-container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+}
+
+.api-section {
+    margin-bottom: 4rem;
+}
+
+.api-intro {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+}
+
+.endpoint-section {
+    margin-bottom: 3rem;
+}
+
+.endpoint {
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+.endpoint-header {
+    padding: 1rem;
+    background: var(--background-color);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.method {
+    padding: 0.3rem 0.8rem;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.method.post {
+    background: #4CAF50;
+    color: white;
+}
+
+.method.get {
+    background: #2196F3;
+    color: white;
+}
+
+.path {
+    font-family: monospace;
+    font-size: 1.1rem;
+}
+
+.endpoint-content {
+    padding: 1.5rem;
+}
+
+.params {
+    margin: 1.5rem 0;
+}
+
+.params table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.params th, .params td {
+    padding: 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.params th {
+    background: var(--background-color);
+    font-weight: 500;
+}
+
+.example {
+    background: var(--background-color);
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-top: 1.5rem;
+}
+
+.example pre {
+    margin: 0;
+    overflow-x: auto;
+}
+
+.example code {
+    font-family: monospace;
+    color: var(--text-color);
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .example {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .endpoint-header {
+    background: rgba(0, 0, 0, 0.2);
 } 

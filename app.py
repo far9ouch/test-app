@@ -427,15 +427,87 @@ def convert_spotify():
             # Get track info
             track = spotify_client.track(track_id)
             
-            # Check if preview is available
-            if not track['preview_url']:
-                return jsonify({'error': 'Preview not available for this track'}), 404
-
-            return jsonify({
-                'url': track['preview_url'],
-                'title': track['name'],
-                'artist': track['artists'][0]['name']
-            })
+            # Get track audio features
+            audio_features = spotify_client.audio_features([track_id])[0]
+            
+            # Use youtube-dl to search and download the track
+            from youtube_dl import YoutubeDL
+            
+            # Create search query
+            search_query = f"{track['name']} {track['artists'][0]['name']} official audio"
+            
+            # Configure youtube-dl
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': quality,
+                }],
+                'outtmpl': '%(title)s.%(ext)s',
+                'quiet': True,
+                'no_warnings': True,
+                'default_search': 'ytsearch',
+            }
+            
+            with YoutubeDL(ydl_opts) as ydl:
+                try:
+                    # Search for the track
+                    info = ydl.extract_info(f"ytsearch:{search_query}", download=False)
+                    if 'entries' in info and len(info['entries']) > 0:
+                        video = info['entries'][0]
+                        
+                        # Download to memory
+                        output = BytesIO()
+                        ydl.download([video['webpage_url']])
+                        
+                        # Get the downloaded file
+                        filename = f"{track['name']} - {track['artists'][0]['name']}.mp3"
+                        safe_filename = re.sub(r'[^\w\s-]', '', filename)
+                        
+                        # Read the file and send it
+                        with open(f"{video['title']}.mp3", 'rb') as f:
+                            output.write(f.read())
+                        
+                        # Clean up the temporary file
+                        os.remove(f"{video['title']}.mp3")
+                        
+                        output.seek(0)
+                        
+                        # Add ID3 tags
+                        from mutagen.easyid3 import EasyID3
+                        from mutagen.mp3 import MP3
+                        
+                        # Create a temporary file for ID3 tags
+                        temp_file = BytesIO(output.read())
+                        audio = MP3(temp_file, ID3=EasyID3)
+                        
+                        # Add metadata
+                        if audio.tags is None:
+                            audio.add_tags()
+                        
+                        audio.tags['title'] = track['name']
+                        audio.tags['artist'] = track['artists'][0]['name']
+                        audio.tags['album'] = track['album']['name']
+                        
+                        # Save the file with tags
+                        output = BytesIO()
+                        audio.save(output)
+                        output.seek(0)
+                        
+                        return send_file(
+                            output,
+                            mimetype='audio/mpeg',
+                            as_attachment=True,
+                            download_name=safe_filename
+                        )
+                    else:
+                        return jsonify({'error': 'Could not find matching audio'}), 404
+                        
+                except Exception as e:
+                    print(f"Download error: {str(e)}")
+                    return jsonify({'error': 'Error downloading track'}), 500
+                    
         except Exception as spotify_error:
             print(f"Spotify API Error: {spotify_error}")
             return jsonify({'error': 'Could not fetch track information'}), 403
@@ -443,6 +515,95 @@ def convert_spotify():
     except Exception as e:
         print(f"General Error: {str(e)}")
         return jsonify({'error': 'An error occurred processing your request'}), 500
+
+@app.route('/api/docs')
+def api_docs():
+    return render_template('api.html')
+
+@app.route('/api/convert', methods=['POST'])
+def api_convert():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+            
+        file = request.files['file']
+        format = request.form.get('format', 'png')
+        quality = int(request.form.get('quality', 85))
+        
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file format'}), 400
+            
+        # Process the image
+        image = Image.open(file)
+        output = BytesIO()
+        
+        if format in ['jpg', 'jpeg']:
+            image = image.convert('RGB')
+            image.save(output, format='JPEG', quality=quality)
+        else:
+            image.save(output, format=format.upper())
+            
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype=f'image/{format}',
+            as_attachment=True,
+            download_name=f'converted.{format}'
+        )
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/youtube/info', methods=['POST'])
+def api_youtube_info():
+    try:
+        url = request.form.get('url')
+        if not url:
+            return jsonify({'error': 'No URL provided'}), 400
+            
+        yt = get_ytb_video(url)
+        return jsonify({
+            'title': yt.title,
+            'author': yt.author,
+            'length': yt.length,
+            'thumbnail': yt.thumbnail_url,
+            'formats': [
+                {
+                    'itag': s.itag,
+                    'quality': s.resolution or s.abr,
+                    'type': 'video' if s.includes_video_track else 'audio',
+                    'mime_type': s.mime_type
+                } for s in yt.streams
+            ]
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spotify/info', methods=['POST'])
+def api_spotify_info():
+    try:
+        url = request.form.get('url')
+        if not url:
+            return jsonify({'error': 'No URL provided'}), 400
+            
+        if 'track/' not in url:
+            return jsonify({'error': 'Invalid Spotify URL'}), 400
+            
+        track_id = url.split('track/')[1].split('?')[0]
+        track = spotify_client.track(track_id)
+        
+        return jsonify({
+            'title': track['name'],
+            'artist': track['artists'][0]['name'],
+            'album': track['album']['name'],
+            'duration': track['duration_ms'] // 1000,
+            'preview_url': track['preview_url']
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.errorhandler(404)
 def not_found_error(error):

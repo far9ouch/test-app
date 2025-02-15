@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation - MultiTool Pro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <header class="main-header">
+        <nav class="navbar">
+            <div class="nav-content">
+                <div class="logo">
+                    <i class="fas fa-tools"></i>
+                    <span>MultiTool Pro</span>
+                </div>
+                <div class="nav-links">
+                    <a href="/">Tools</a>
+                    <a href="/api/docs" class="active">API</a>
+                    <a href="#">Pricing</a>
+                    <a href="#">Support</a>
+                </div>
+                <div class="nav-actions">
+                    <div class="theme-toggle">
+                        <i class="fas fa-moon"></i>
+                    </div>
+                    <a href="#" class="sign-in-btn">Sign In</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <div class="api-container">
+        <div class="api-section">
+            <h1>API Documentation</h1>
+            <p class="api-intro">Integrate our powerful tools into your applications with our REST API.</p>
+
+            <div class="endpoint-section">
+                <h2>Image Conversion API</h2>
+                <div class="endpoint glass-card">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="path">/api/convert</span>
+                    </div>
+                    <div class="endpoint-content">
+                        <h3>Convert Image</h3>
+                        <p>Convert images between different formats with optional quality settings.</p>
+                        
+                        <div class="params">
+                            <h4>Parameters</h4>
+                            <table>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                </tr>
+                                <tr>
+                                    <td>file</td>
+                                    <td>File</td>
+                                    <td>The image file to convert</td>
+                                </tr>
+                                <tr>
+                                    <td>format</td>
+                                    <td>String</td>
+                                    <td>Target format (png, jpg, webp)</td>
+                                </tr>
+                                <tr>
+                                    <td>quality</td>
+                                    <td>Number</td>
+                                    <td>Output quality (1-100)</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div class="example">
+                            <h4>Example Request</h4>
+                            <pre><code>curl -X POST \
+  'https://yourdomain.com/api/convert' \
+  -F 'file=@image.png' \
+  -F 'format=jpg' \
+  -F 'quality=85'</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-section">
+                <h2>YouTube API</h2>
+                <div class="endpoint glass-card">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="path">/api/youtube/info</span>
+                    </div>
+                    <div class="endpoint-content">
+                        <h3>Get Video Information</h3>
+                        <p>Retrieve information about a YouTube video including available formats.</p>
+                        
+                        <div class="params">
+                            <h4>Parameters</h4>
+                            <table>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                </tr>
+                                <tr>
+                                    <td>url</td>
+                                    <td>String</td>
+                                    <td>YouTube video URL</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div class="example">
+                            <h4>Example Request</h4>
+                            <pre><code>curl -X POST \
+  'https://yourdomain.com/api/youtube/info' \
+  -F 'url=https://youtube.com/watch?v=...'</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-section">
+                <h2>Spotify API</h2>
+                <div class="endpoint glass-card">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="path">/api/spotify/info</span>
+                    </div>
+                    <div class="endpoint-content">
+                        <h3>Get Track Information</h3>
+                        <p>Retrieve information about a Spotify track.</p>
+                        
+                        <div class="params">
+                            <h4>Parameters</h4>
+                            <table>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                </tr>
+                                <tr>
+                                    <td>url</td>
+                                    <td>String</td>
+                                    <td>Spotify track URL</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div class="example">
+                            <h4>Example Request</h4>
+                            <pre><code>curl -X POST \
+  'https://yourdomain.com/api/spotify/info' \
+  -F 'url=https://open.spotify.com/track/...'</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
