@@ -12,6 +12,7 @@ import logging
 from functools import wraps
 from time import time
 from spotipy.exceptions import SpotifyException
+from youtube_dl import YoutubeDL
 
 app = Flask(__name__)
 CORS(app)
@@ -95,7 +96,7 @@ def convert_image():
         
         # Process image
         image = Image.open(file)
-            output = BytesIO()
+        output = BytesIO()
         
         if format in ['jpg', 'jpeg']:
             image = image.convert('RGB')
@@ -450,23 +451,15 @@ def convert_spotify():
         if not url:
             return jsonify({'error': 'No URL provided'}), 400
 
-        # Extract track ID
-        if 'track/' in url:
-            track_id = url.split('track/')[1].split('?')[0]
+        # Extract track ID and get track info
+        if 'spotify.com/track/' in url:
+            track_id = url.split('track/')[1].split('?')[0].split('/')[0]
         else:
-            return jsonify({'error': 'Invalid Spotify URL'}), 400
+            return jsonify({'error': 'Invalid Spotify URL format'}), 400
         
         try:
-            # Get track info
+            # Get track info from Spotify
             track = spotify_client.track(track_id)
-            
-            # Get track audio features
-            audio_features = spotify_client.audio_features([track_id])[0]
-            
-            # Use youtube-dl to search and download the track
-            from youtube_dl import YoutubeDL
-            
-            # Create search query
             search_query = f"{track['name']} {track['artists'][0]['name']} official audio"
             
             # Configure youtube-dl
@@ -477,76 +470,53 @@ def convert_spotify():
                     'preferredcodec': 'mp3',
                     'preferredquality': quality,
                 }],
-                'outtmpl': '%(title)s.%(ext)s',
+                'outtmpl': 'temp_%(title)s.%(ext)s',
                 'quiet': True,
                 'no_warnings': True,
                 'default_search': 'ytsearch',
+                'extract_flat': False
             }
             
             with YoutubeDL(ydl_opts) as ydl:
                 try:
-                    # Search for the track
-                    info = ydl.extract_info(f"ytsearch:{search_query}", download=False)
-                    if 'entries' in info and len(info['entries']) > 0:
-                        video = info['entries'][0]
-                        
-                        # Download to memory
-                        output = BytesIO()
-                        ydl.download([video['webpage_url']])
-                        
-                        # Get the downloaded file
-                        filename = f"{track['name']} - {track['artists'][0]['name']}.mp3"
-                        safe_filename = re.sub(r'[^\w\s-]', '', filename)
-                        
-                        # Read the file and send it
-                        with open(f"{video['title']}.mp3", 'rb') as f:
-                            output.write(f.read())
-                        
-                        # Clean up the temporary file
-                        os.remove(f"{video['title']}.mp3")
-                        
-                        output.seek(0)
-                        
-                        # Add ID3 tags
-                        from mutagen.easyid3 import EasyID3
-                        from mutagen.mp3 import MP3
-                        
-                        # Create a temporary file for ID3 tags
-                        temp_file = BytesIO(output.read())
-                        audio = MP3(temp_file, ID3=EasyID3)
-                        
-                        # Add metadata
-                        if audio.tags is None:
-                            audio.add_tags()
-                        
-                        audio.tags['title'] = track['name']
-                        audio.tags['artist'] = track['artists'][0]['name']
-                        audio.tags['album'] = track['album']['name']
-                        
-                        # Save the file with tags
-                        output = BytesIO()
-                        audio.save(output)
-                        output.seek(0)
-                        
-                        return send_file(
-                            output,
-                            mimetype='audio/mpeg',
-                            as_attachment=True,
-                            download_name=safe_filename
-                        )
-                    else:
-                        return jsonify({'error': 'Could not find matching audio'}), 404
-                        
+                    # Search and download
+                    info = ydl.extract_info(f"ytsearch:{search_query}", download=True)
+                    if not info or 'entries' not in info or not info['entries']:
+                        return jsonify({'error': 'No matching audio found'}), 404
+                    
+                    video_info = info['entries'][0]
+                    filename = f"temp_{video_info['title']}.mp3"
+                    
+                    # Create safe filename for the output
+                    safe_title = re.sub(r'[^\w\s-]', '', track['name'])
+                    safe_artist = re.sub(r'[^\w\s-]', '', track['artists'][0]['name'])
+                    output_filename = f"{safe_title} - {safe_artist}.mp3"
+                    
+                    # Read the downloaded file
+                    with open(filename, 'rb') as f:
+                        audio_data = f.read()
+                    
+                    # Clean up the temporary file
+                    os.remove(filename)
+                    
+                    # Send the file
+                    return send_file(
+                        BytesIO(audio_data),
+                        mimetype='audio/mpeg',
+                        as_attachment=True,
+                        download_name=output_filename
+                    )
+                    
                 except Exception as e:
-                    print(f"Download error: {str(e)}")
+                    logger.error(f"Download error: {str(e)}")
                     return jsonify({'error': 'Error downloading track'}), 500
                     
         except Exception as spotify_error:
-            print(f"Spotify API Error: {spotify_error}")
+            logger.error(f"Spotify API Error: {str(spotify_error)}")
             return jsonify({'error': 'Could not fetch track information'}), 403
             
     except Exception as e:
-        print(f"General Error: {str(e)}")
+        logger.error(f"General Error: {str(e)}")
         return jsonify({'error': 'An error occurred processing your request'}), 500
 
 @app.route('/api/docs')
