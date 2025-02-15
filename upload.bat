@@ -11,6 +11,9 @@ if not exist .git (
     git remote add origin https://github.com/far9ouch/test-app.git
 )
 
+:: Create and switch to main branch if it doesn't exist
+git checkout -b main 2>nul
+
 :: Add all files
 git add .
 
@@ -19,8 +22,8 @@ set /p commit_msg="Enter commit message (or press Enter for default): "
 if "%commit_msg%"=="" set commit_msg="Auto update files"
 git commit -m "%commit_msg%"
 
-:: Push to GitHub
-git push -u origin main
+:: Force push to GitHub (use with caution - only for initial setup)
+git push -f origin main
 
 echo Done!
 pause 
