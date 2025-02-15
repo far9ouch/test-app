@@ -3,10 +3,6 @@ from flask_cors import CORS
 from PIL import Image, ImageEnhance, ImageFilter
 import os
 from io import BytesIO
-import cairosvg
-import numpy as np
-from pytube import YouTube
-from pydub import AudioSegment
 import re
 import requests
 from spotipy import Spotify
@@ -15,9 +11,6 @@ from config import SPOTIFY_CONFIG
 import logging
 from functools import wraps
 from time import time
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from flask_caching import Cache
 from spotipy.exceptions import SpotifyException
 
 app = Flask(__name__)
@@ -54,22 +47,6 @@ def track_performance(f):
             raise
     return wrapper
 
-# Rate limiting
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
-)
-
-# Cache configuration
-cache_config = {
-    "DEBUG": True,
-    "CACHE_TYPE": "SimpleCache",
-    "CACHE_DEFAULT_TIMEOUT": 300
-}
-app.config.from_mapping(cache_config)
-cache = Cache(app)
-
 # Fix for pytube user agent
 def get_ytb_video(url):
     try:
@@ -104,65 +81,38 @@ def home():
     return render_template('index.html')
 
 @app.route('/convert', methods=['POST'])
-@track_performance
-@limiter.limit("10 per minute")
 def convert_image():
     try:
         if 'file' not in request.files:
-            raise ValueError('No file uploaded')
+            return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
-        if file.filename == '':
-            raise ValueError('No file selected')
-            
-        target_format = request.form.get('format', 'png').lower()
+        format = request.form.get('format', 'png')
         quality = int(request.form.get('quality', 85))
-        width = request.form.get('width')
-        height = request.form.get('height')
         
-        # Validate file type
-        validate_file_type(file, ALLOWED_EXTENSIONS)
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file format'}), 400
         
         # Process image
-        if file.filename.lower().endswith('.svg'):
+        image = Image.open(file)
             output = BytesIO()
-            if target_format in ['png', 'jpg', 'jpeg']:
-                cairosvg.svg2png(file_obj=file, write_to=output)
-                if target_format in ['jpg', 'jpeg']:
-                    png_image = Image.open(output)
-                    output = BytesIO()
-                    png_image.convert('RGB').save(output, 'JPEG', quality=quality)
+        
+        if format in ['jpg', 'jpeg']:
+            image = image.convert('RGB')
+            image.save(output, format='JPEG', quality=quality)
         else:
-            image = Image.open(file)
-            
-            # Resize if dimensions provided
-            if width and height:
-                try:
-                    new_width = int(width)
-                    new_height = int(height)
-                    image = image.resize((new_width, new_height), Image.LANCZOS)
-                except ValueError:
-                    logger.warning("Invalid dimensions provided")
-                    
-            # Optimize image
-            image, save_options = optimize_image(image, target_format, quality)
-            
-            output = BytesIO()
-            image.save(output, format=target_format.upper(), **save_options)
+            image.save(output, format=format.upper())
         
         output.seek(0)
-        size_reduction = (file.tell() - output.tell()) / file.tell() * 100
-        logger.info(f"Image converted with {size_reduction:.1f}% size reduction")
         
         return send_file(
             output,
-            mimetype=f'image/{target_format}',
+            mimetype=f'image/{format}',
             as_attachment=True,
-            download_name=f'converted.{target_format}'
+            download_name=f'converted.{format}'
         )
 
     except Exception as e:
-        logger.error(f"Image conversion failed: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/apply-effect', methods=['POST'])
