@@ -206,4 +206,347 @@ function showStatus(message, type) {
     const status = document.getElementById('status');
     status.textContent = message;
     status.className = 'status ' + type;
-} 
+}
+
+// Image editing functionality
+let currentImage = null;
+let currentEffect = null;
+const canvas = document.getElementById('editCanvas');
+const ctx = canvas.getContext('2d');
+
+function loadImageToCanvas(file) {
+    const img = new Image();
+    img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        currentImage = img;
+    };
+    img.src = URL.createObjectURL(file);
+}
+
+// Effect buttons
+document.querySelectorAll('.effect-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.effect-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentEffect = btn.dataset.effect;
+        
+        const intensitySlider = document.querySelector('.intensity-slider');
+        intensitySlider.classList.remove('hidden');
+    });
+});
+
+// Intensity slider
+const intensitySlider = document.getElementById('effectIntensity');
+const intensityValue = document.getElementById('intensityValue');
+
+intensitySlider.addEventListener('input', () => {
+    intensityValue.textContent = `${intensitySlider.value}%`;
+    applyEffect();
+});
+
+async function applyEffect() {
+    if (!currentImage || !currentEffect) return;
+    
+    const formData = new FormData();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve));
+    formData.append('file', blob);
+    formData.append('effect', currentEffect);
+    formData.append('intensity', intensitySlider.value / 100);
+    
+    try {
+        const response = await fetch('/apply-effect', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const img = new Image();
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = URL.createObjectURL(blob);
+        }
+    } catch (error) {
+        showStatus('Error applying effect: ' + error.message, 'error');
+    }
+}
+
+// Cropping functionality
+const cropOverlay = document.querySelector('.crop-overlay');
+const cropArea = document.querySelector('.crop-area');
+let isCropping = false;
+
+document.getElementById('startCrop').addEventListener('click', () => {
+    cropOverlay.classList.remove('hidden');
+    document.getElementById('startCrop').classList.add('hidden');
+    document.getElementById('applyCrop').classList.remove('hidden');
+    isCropping = true;
+    
+    // Initialize crop area
+    const canvasRect = canvas.getBoundingClientRect();
+    cropArea.style.width = '50%';
+    cropArea.style.height = '50%';
+    cropArea.style.left = '25%';
+    cropArea.style.top = '25%';
+});
+
+document.getElementById('applyCrop').addEventListener('click', async () => {
+    if (!isCropping) return;
+    
+    const canvasRect = canvas.getBoundingClientRect();
+    const cropRect = cropArea.getBoundingClientRect();
+    
+    const scaleX = canvas.width / canvasRect.width;
+    const scaleY = canvas.height / canvasRect.height;
+    
+    const x = (cropRect.left - canvasRect.left) * scaleX;
+    const y = (cropRect.top - canvasRect.top) * scaleY;
+    const width = cropRect.width * scaleX;
+    const height = cropRect.height * scaleY;
+    
+    const formData = new FormData();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve));
+    formData.append('file', blob);
+    formData.append('x', x);
+    formData.append('y', y);
+    formData.append('width', width);
+    formData.append('height', height);
+    
+    try {
+        const response = await fetch('/crop', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const img = new Image();
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                
+                cropOverlay.classList.add('hidden');
+                document.getElementById('startCrop').classList.remove('hidden');
+                document.getElementById('applyCrop').classList.add('hidden');
+                isCropping = false;
+            };
+            img.src = URL.createObjectURL(blob);
+        }
+    } catch (error) {
+        showStatus('Error applying crop: ' + error.message, 'error');
+    }
+});
+
+// Save edited image
+document.getElementById('saveEdits').addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'edited_image.png';
+    link.href = canvas.toDataURL();
+    link.click();
+});
+
+// Make crop area draggable
+let isDragging = false;
+let startX, startY;
+
+cropArea.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    startX = e.clientX - cropArea.offsetLeft;
+    startY = e.clientY - cropArea.offsetTop;
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    
+    const newX = e.clientX - startX;
+    const newY = e.clientY - startY;
+    
+    cropArea.style.left = `${newX}px`;
+    cropArea.style.top = `${newY}px`;
+});
+
+document.addEventListener('mouseup', () => {
+    isDragging = false;
+});
+
+// Add this to your existing script.js
+let currentVideoUrl = null;
+
+document.getElementById('youtubeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const url = document.getElementById('youtubeUrl').value;
+    const videoInfo = document.getElementById('videoInfo');
+    const status = document.getElementById('status');
+    
+    if (!url) {
+        showStatus('Please enter a YouTube URL', 'error');
+        return;
+    }
+
+    showStatus('Checking video...', 'info');
+
+    try {
+        const formData = new FormData();
+        formData.append('url', url);
+
+        const response = await fetch('/video-info', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Update video info
+            document.getElementById('videoThumbnail').src = data.thumbnail;
+            document.getElementById('videoTitle').textContent = data.title;
+            document.getElementById('videoAuthor').textContent = `by ${data.author}`;
+            document.getElementById('videoDuration').textContent = formatDuration(data.length);
+            
+            videoInfo.classList.remove('hidden');
+            currentVideoUrl = url;
+            showStatus('Video found!', 'success');
+        } else {
+            const error = await response.json();
+            showStatus(`Error: ${error.error}`, 'error');
+        }
+    } catch (error) {
+        showStatus(`Error: ${error.message}`, 'error');
+    }
+});
+
+document.getElementById('downloadMp3').addEventListener('click', async () => {
+    if (!currentVideoUrl) return;
+    
+    const quality = document.getElementById('audioQuality').value;
+    const progress = document.querySelector('.download-progress');
+    const progressBar = document.querySelector('.progress');
+    const progressText = document.querySelector('.progress-text');
+    
+    progress.classList.remove('hidden');
+    showStatus('Starting download...', 'info');
+
+    try {
+        const formData = new FormData();
+        formData.append('url', currentVideoUrl);
+        formData.append('quality', quality);
+
+        const response = await fetch('/download-mp3', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${document.getElementById('videoTitle').textContent}.mp3`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showStatus('Download completed!', 'success');
+        } else {
+            const error = await response.json();
+            showStatus(`Error: ${error.error}`, 'error');
+        }
+    } catch (error) {
+        showStatus(`Error: ${error.message}`, 'error');
+    } finally {
+        progress.classList.add('hidden');
+        progressBar.style.width = '0';
+        progressText.textContent = 'Downloading: 0%';
+    }
+});
+
+function formatDuration(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
+// Improved toast notifications
+function showToast(message, type = 'info', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 
+                          type === 'error' ? 'exclamation-circle' : 
+                          'info-circle'}"></i>
+        <span>${message}</span>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-in forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+// Feature card navigation
+document.querySelectorAll('.feature-card').forEach(card => {
+    card.addEventListener('click', () => {
+        const feature = card.querySelector('h3').textContent.toLowerCase();
+        const tabId = feature.includes('image') ? 'convert' :
+                     feature.includes('editor') ? 'edit' :
+                     feature.includes('youtube') ? 'youtube' : 'batch';
+        
+        document.querySelector(`.tab-btn[data-tab="${tabId}"]`).click();
+    });
+});
+
+// Improved file drag and drop
+function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const dropZone = e.currentTarget;
+    dropZone.style.transform = 'scale(1.02)';
+    dropZone.style.borderColor = 'var(--primary-color)';
+}
+
+function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const dropZone = e.currentTarget;
+    dropZone.style.transform = 'scale(1)';
+    dropZone.style.borderColor = 'var(--border-color)';
+}
+
+// Add loading indicators
+function showLoading(element) {
+    const spinner = document.createElement('div');
+    spinner.className = 'loading-spinner';
+    element.appendChild(spinner);
+}
+
+function hideLoading(element) {
+    const spinner = element.querySelector('.loading-spinner');
+    if (spinner) spinner.remove();
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+        switch(e.key.toLowerCase()) {
+            case 's':
+                e.preventDefault();
+                document.getElementById('saveEdits').click();
+                break;
+            case 'o':
+                e.preventDefault();
+                document.getElementById('imageFile').click();
+                break;
+        }
+    }
+}); 

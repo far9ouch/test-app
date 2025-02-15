@@ -20,11 +20,36 @@
         </div>
     </nav>
 
+    <div class="features-showcase">
+        <div class="feature-card">
+            <i class="fas fa-image"></i>
+            <h3>Image Converter</h3>
+            <p>Convert between PNG, JPG, WebP, and more</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-magic"></i>
+            <h3>Image Editor</h3>
+            <p>Apply effects, crop, and enhance images</p>
+        </div>
+        <div class="feature-card">
+            <i class="fab fa-youtube"></i>
+            <h3>YouTube to MP3</h3>
+            <p>Download YouTube videos as MP3</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-layer-group"></i>
+            <h3>Batch Processing</h3>
+            <p>Convert multiple files at once</p>
+        </div>
+    </div>
+
     <div class="container">
         <div class="converter-box">
             <div class="tabs">
                 <button class="tab-btn active" data-tab="convert">Convert Image</button>
                 <button class="tab-btn" data-tab="batch">Batch Convert</button>
+                <button class="tab-btn" data-tab="edit">Edit Image</button>
+                <button class="tab-btn" data-tab="youtube">YouTube MP3</button>
             </div>
 
             <div class="tab-content active" id="convert">
@@ -98,6 +123,127 @@
                     <p>Convert multiple images at once</p>
                     <input type="file" id="batchFiles" multiple accept=".png,.jpg,.jpeg,.svg,.webp,.gif">
                     <label for="batchFiles" class="file-label">Select Multiple Files</label>
+                </div>
+            </div>
+
+            <div class="tab-content" id="edit">
+                <div class="edit-container">
+                    <div class="edit-preview">
+                        <canvas id="editCanvas"></canvas>
+                        <div class="crop-overlay hidden">
+                            <div class="crop-area" draggable="true"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="edit-tools">
+                        <div class="tool-section">
+                            <h3><i class="fas fa-magic"></i> Effects</h3>
+                            <div class="effects-grid">
+                                <button class="effect-btn" data-effect="blur">
+                                    <i class="fas fa-brush"></i> Blur
+                                </button>
+                                <button class="effect-btn" data-effect="sharpen">
+                                    <i class="fas fa-certificate"></i> Sharpen
+                                </button>
+                                <button class="effect-btn" data-effect="brightness">
+                                    <i class="fas fa-sun"></i> Brightness
+                                </button>
+                                <button class="effect-btn" data-effect="contrast">
+                                    <i class="fas fa-adjust"></i> Contrast
+                                </button>
+                                <button class="effect-btn" data-effect="grayscale">
+                                    <i class="fas fa-gray"></i> Grayscale
+                                </button>
+                                <button class="effect-btn" data-effect="sepia">
+                                    <i class="fas fa-film"></i> Sepia
+                                </button>
+                            </div>
+                            
+                            <div class="intensity-slider hidden">
+                                <label>Effect Intensity:</label>
+                                <input type="range" id="effectIntensity" min="0" max="200" value="100">
+                                <span id="intensityValue">100%</span>
+                            </div>
+                        </div>
+
+                        <div class="tool-section">
+                            <h3><i class="fas fa-crop"></i> Crop</h3>
+                            <button id="startCrop" class="tool-btn">
+                                <i class="fas fa-crop"></i> Start Cropping
+                            </button>
+                            <button id="applyCrop" class="tool-btn hidden">
+                                <i class="fas fa-check"></i> Apply Crop
+                            </button>
+                        </div>
+
+                        <div class="tool-section">
+                            <h3><i class="fas fa-save"></i> Save</h3>
+                            <button id="saveEdits" class="tool-btn">
+                                <i class="fas fa-download"></i> Save Image
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="youtube">
+                <div class="youtube-container">
+                    <div class="youtube-form">
+                        <h3><i class="fab fa-youtube"></i> YouTube to MP3 Converter</h3>
+                        <form id="youtubeForm">
+                            <div class="url-input">
+                                <input type="text" id="youtubeUrl" 
+                                       placeholder="Paste YouTube URL here..."
+                                       required>
+                                <button type="submit" class="check-btn">
+                                    <i class="fas fa-search"></i> Check Video
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="videoInfo" class="video-info hidden">
+                        <div class="video-preview">
+                            <img id="videoThumbnail" alt="Video thumbnail">
+                            <div class="video-details">
+                                <h4 id="videoTitle"></h4>
+                                <p id="videoAuthor"></p>
+                                <p id="videoDuration"></p>
+                            </div>
+                        </div>
+                        <div class="download-options">
+                            <button id="downloadMp3" class="download-btn">
+                                <i class="fas fa-download"></i> Download MP3
+                            </button>
+                            <div class="quality-select">
+                                <label for="audioQuality">
+                                    <i class="fas fa-music"></i> Audio Quality:
+                                </label>
+                                <select id="audioQuality">
+                                    <option value="192">192 kbps</option>
+                                    <option value="128">128 kbps</option>
+                                    <option value="96">96 kbps</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="download-progress hidden">
+                        <div class="progress-bar">
+                            <div class="progress"></div>
+                        </div>
+                        <p class="progress-text">Downloading: 0%</p>
+                    </div>
+
+                    <div class="features-list">
+                        <h4>Features:</h4>
+                        <ul>
+                            <li><i class="fas fa-check"></i> High-quality MP3 conversion</li>
+                            <li><i class="fas fa-check"></i> No registration required</li>
+                            <li><i class="fas fa-check"></i> Unlimited downloads</li>
+                            <li><i class="fas fa-check"></i> Fast conversion speed</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
 
