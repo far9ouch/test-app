@@ -189,7 +189,7 @@
             <div class="tab-content" id="youtube">
                 <div class="youtube-container">
                     <div class="youtube-form">
-                        <h3><i class="fab fa-youtube"></i> YouTube to MP3 Converter</h3>
+                        <h3><i class="fab fa-youtube"></i> YouTube Downloader</h3>
                         <form id="youtubeForm">
                             <div class="url-input">
                                 <input type="text" id="youtubeUrl" 
@@ -211,20 +211,36 @@
                                 <p id="videoDuration"></p>
                             </div>
                         </div>
+
                         <div class="download-options">
-                            <button id="downloadMp3" class="download-btn">
-                                <i class="fas fa-download"></i> Download MP3
-                            </button>
-                            <div class="quality-select">
-                                <label for="audioQuality">
-                                    <i class="fas fa-music"></i> Audio Quality:
-                                </label>
-                                <select id="audioQuality">
-                                    <option value="192">192 kbps</option>
-                                    <option value="128">128 kbps</option>
-                                    <option value="96">96 kbps</option>
-                                </select>
+                            <div class="format-tabs">
+                                <button class="format-tab active" data-format="video">
+                                    <i class="fas fa-video"></i> Video (MP4)
+                                </button>
+                                <button class="format-tab" data-format="audio">
+                                    <i class="fas fa-music"></i> Audio (MP3)
+                                </button>
                             </div>
+
+                            <div class="quality-panels">
+                                <div class="quality-panel active" id="videoQualityPanel">
+                                    <h4>Select Video Quality:</h4>
+                                    <div class="quality-list" id="videoQualities">
+                                        <!-- Video qualities will be added here -->
+                                    </div>
+                                </div>
+
+                                <div class="quality-panel" id="audioQualityPanel">
+                                    <h4>Select Audio Quality:</h4>
+                                    <div class="quality-list" id="audioQualities">
+                                        <!-- Audio qualities will be added here -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button id="downloadBtn" class="download-btn" disabled>
+                                <i class="fas fa-download"></i> Download
+                            </button>
                         </div>
                     </div>
 
@@ -238,10 +254,10 @@
                     <div class="features-list">
                         <h4>Features:</h4>
                         <ul>
-                            <li><i class="fas fa-check"></i> High-quality MP3 conversion</li>
-                            <li><i class="fas fa-check"></i> No registration required</li>
-                            <li><i class="fas fa-check"></i> Unlimited downloads</li>
-                            <li><i class="fas fa-check"></i> Fast conversion speed</li>
+                            <li><i class="fas fa-video"></i> Download videos up to 4K quality</li>
+                            <li><i class="fas fa-music"></i> High-quality MP3 conversion</li>
+                            <li><i class="fas fa-tachometer-alt"></i> Multiple quality options</li>
+                            <li><i class="fas fa-check"></i> Free and unlimited downloads</li>
                         </ul>
                     </div>
                 </div>

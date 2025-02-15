@@ -378,19 +378,62 @@ document.addEventListener('mouseup', () => {
 // Add this to your existing script.js
 let currentVideoUrl = null;
 
+// Add/modify these functions for YouTube download
+let selectedQuality = null;
+
+document.querySelectorAll('.format-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.format-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.quality-panel').forEach(p => p.classList.remove('active'));
+        
+        tab.classList.add('active');
+        const format = tab.dataset.format;
+        document.getElementById(`${format}QualityPanel`).classList.add('active');
+    });
+});
+
+function createQualityOption(quality, isVideo) {
+    const div = document.createElement('div');
+    div.className = 'quality-option';
+    div.dataset.itag = quality.itag;
+    
+    const filesize = formatFileSize(quality.filesize);
+    const qualityLabel = isVideo ? 
+        `${quality.resolution} ${quality.fps}fps` :
+        `${quality.abr}`;
+    
+    div.innerHTML = `
+        <div class="quality-info">
+            <i class="fas fa-${isVideo ? 'video' : 'music'}"></i>
+            <span>${qualityLabel}</span>
+        </div>
+        <span class="quality-size">${filesize}</span>
+    `;
+    
+    div.addEventListener('click', () => {
+        document.querySelectorAll('.quality-option').forEach(opt => 
+            opt.classList.remove('selected'));
+        div.classList.add('selected');
+        selectedQuality = quality.itag;
+        document.getElementById('downloadBtn').disabled = false;
+    });
+    
+    return div;
+}
+
 document.getElementById('youtubeForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const url = document.getElementById('youtubeUrl').value;
     const videoInfo = document.getElementById('videoInfo');
-    const status = document.getElementById('status');
     
     if (!url) {
-        showStatus('Please enter a YouTube URL', 'error');
+        showToast('Please enter a YouTube URL', 'error');
         return;
     }
 
-    showStatus('Checking video...', 'info');
+    showLoading(document.querySelector('.youtube-form'));
+    showToast('Checking video...', 'info');
 
     try {
         const formData = new FormData();
@@ -410,35 +453,50 @@ document.getElementById('youtubeForm').addEventListener('submit', async (e) => {
             document.getElementById('videoAuthor').textContent = `by ${data.author}`;
             document.getElementById('videoDuration').textContent = formatDuration(data.length);
             
+            // Update quality options
+            const videoQualities = document.getElementById('videoQualities');
+            const audioQualities = document.getElementById('audioQualities');
+            
+            videoQualities.innerHTML = '';
+            audioQualities.innerHTML = '';
+            
+            data.video_qualities.forEach(quality => {
+                videoQualities.appendChild(createQualityOption(quality, true));
+            });
+            
+            data.audio_qualities.forEach(quality => {
+                audioQualities.appendChild(createQualityOption(quality, false));
+            });
+            
             videoInfo.classList.remove('hidden');
-            currentVideoUrl = url;
-            showStatus('Video found!', 'success');
+            showToast('Video found!', 'success');
         } else {
             const error = await response.json();
-            showStatus(`Error: ${error.error}`, 'error');
+            showToast(`Error: ${error.error}`, 'error');
         }
     } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
+        showToast(`Error: ${error.message}`, 'error');
+    } finally {
+        hideLoading(document.querySelector('.youtube-form'));
     }
 });
 
-document.getElementById('downloadMp3').addEventListener('click', async () => {
-    if (!currentVideoUrl) return;
+document.getElementById('downloadBtn').addEventListener('click', async () => {
+    if (!selectedQuality) return;
     
-    const quality = document.getElementById('audioQuality').value;
     const progress = document.querySelector('.download-progress');
     const progressBar = document.querySelector('.progress');
     const progressText = document.querySelector('.progress-text');
     
     progress.classList.remove('hidden');
-    showStatus('Starting download...', 'info');
+    showToast('Starting download...', 'info');
 
     try {
         const formData = new FormData();
-        formData.append('url', currentVideoUrl);
-        formData.append('quality', quality);
+        formData.append('url', document.getElementById('youtubeUrl').value);
+        formData.append('itag', selectedQuality);
 
-        const response = await fetch('/download-mp3', {
+        const response = await fetch('/download-video', {
             method: 'POST',
             body: formData
         });
@@ -448,19 +506,21 @@ document.getElementById('downloadMp3').addEventListener('click', async () => {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${document.getElementById('videoTitle').textContent}.mp3`;
+            a.download = `${document.getElementById('videoTitle').textContent}${
+                document.querySelector('.format-tab.active').dataset.format === 'video' ? '.mp4' : '.mp3'
+            }`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
             
-            showStatus('Download completed!', 'success');
+            showToast('Download completed!', 'success');
         } else {
             const error = await response.json();
-            showStatus(`Error: ${error.error}`, 'error');
+            showToast(`Error: ${error.error}`, 'error');
         }
     } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
+        showToast(`Error: ${error.message}`, 'error');
     } finally {
         progress.classList.add('hidden');
         progressBar.style.width = '0';

@@ -227,12 +227,75 @@ def get_video_info():
             return jsonify({'error': 'No URL provided'}), 400
 
         yt = YouTube(url)
+        
+        # Get all available streams
+        streams = yt.streams
+        
+        # Get video streams with audio
+        video_streams = streams.filter(progressive=True).order_by('resolution').desc()
+        
+        # Get audio-only streams
+        audio_streams = streams.filter(only_audio=True).order_by('abr').desc()
+        
+        # Format stream information
+        video_qualities = [{
+            'itag': s.itag,
+            'resolution': s.resolution,
+            'fps': s.fps,
+            'filesize': s.filesize,
+            'mime_type': s.mime_type
+        } for s in video_streams]
+        
+        audio_qualities = [{
+            'itag': s.itag,
+            'abr': s.abr,
+            'filesize': s.filesize,
+            'mime_type': s.mime_type
+        } for s in audio_streams]
+
         return jsonify({
             'title': yt.title,
             'author': yt.author,
             'length': yt.length,
-            'thumbnail': yt.thumbnail_url
+            'thumbnail': yt.thumbnail_url,
+            'video_qualities': video_qualities,
+            'audio_qualities': audio_qualities
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/download-video', methods=['POST'])
+def download_video():
+    try:
+        url = request.form.get('url')
+        itag = request.form.get('itag')
+        
+        if not url or not itag:
+            return jsonify({'error': 'Missing URL or quality selection'}), 400
+
+        yt = YouTube(url)
+        stream = yt.streams.get_by_itag(int(itag))
+        
+        if not stream:
+            return jsonify({'error': 'Selected quality not available'}), 404
+
+        # Download to memory
+        output = BytesIO()
+        stream.stream_to_buffer(output)
+        output.seek(0)
+
+        # Clean filename
+        safe_title = re.sub(r'[^\w\s-]', '', yt.title)
+        extension = 'mp4' if stream.includes_video_track else 'mp3'
+        filename = f"{safe_title}.{extension}"
+
+        return send_file(
+            output,
+            mimetype=stream.mime_type,
+            as_attachment=True,
+            download_name=filename
+        )
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
